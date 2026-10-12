@@ -1,0 +1,40 @@
+/* =========================================================================
+   Modèle de Fichier de Variables pour load_csv_generic.sh / TPT
+   =========================================================================
+   Ce fichier peut être passé au script via l'argument -v :
+   ./load_csv_generic.sh -v jobvariables_template.txt
+   
+   Les variables ci-dessous suivent la nomenclature officielle TPT. 
+   Les arguments passés en ligne de commande (CLI) écraseront ces valeurs.
+   ========================================================================= */
+
+/* Fichiers Sources */
+DirectoryPath      = ''
+FileName           = ''
+TextDelimiter      = ''
+SkipRows           = ''
+
+/* Connexion & Bases de données */
+TargetDatabase     = ''
+UtilityDatabase    = ''
+UserName           = ''
+
+/* Cible et Mode de Chargement */
+TargetTable        = ''
+ConsumerOperator   = ''   /* 'LOAD_OPERATOR' (replace) ou 'UPDATE_OPERATOR' (append) */
+
+/* Traçabilité (optionnelle, remplace l'auto-détection si renseigné) */
+BatchId            = ''
+Timestamp          = ''
+BatchIdPattern     = ''
+TimestampPattern   = ''
+
+/* Tuning & Instances */
+ErrorLimit         = ''
+ReaderInstances    = ''
+LoadInstances      = ''
+MaxSessions        = ''
+
+/* Répertoires Locaux (spécifiques au wrapper shell) */
+ArchiveDirectory   = ''
+WorkDirectory      = ''
