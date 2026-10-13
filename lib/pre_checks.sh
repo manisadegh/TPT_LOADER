@@ -40,6 +40,36 @@ for f in "${FILES[@]}"; do
     [ -s "${f}" ] || die 1 "File is empty or unreadable: ${f}"
 done
 
+# Decompress ZIP archives if passed directly
+IS_ZIP="N"
+for f in "${FILES[@]}"; do
+    if [[ "${f,,}" == *.zip ]]; then
+        IS_ZIP="Y"
+        break
+    fi
+done
+
+if [ "${IS_ZIP}" = "Y" ]; then
+    UNZIP_DIR="${WORK_DIR}/unzipped_$(date +%s)_$$"
+    mkdir -p "${UNZIP_DIR}" || die 1 "Cannot create unzip directory: ${UNZIP_DIR}"
+    log INFO "ZIP archive detected. Decompressing ${#FILES[@]} file(s) into temporary workspace ${UNZIP_DIR}..."
+    for f in "${FILES[@]}"; do
+        if command -v unzip >/dev/null 2>&1; then
+            unzip -q -o "${f}" -d "${UNZIP_DIR}" || die 1 "Failed to decompress ${f}"
+        else
+            die 1 "unzip utility not available for decompressing ${f}"
+        fi
+    done
+    shopt -s nullglob
+    EXTRACTED_FILES=( "${UNZIP_DIR}"/*.csv )
+    shopt -u nullglob
+    [ ${#EXTRACTED_FILES[@]} -eq 0 ] && die 1 "No CSV files extracted from ZIP archive(s)"
+    FILES=( "${EXTRACTED_FILES[@]}" )
+    DIRECTORY_PATH="${UNZIP_DIR}"
+    FILE_NAME="*.csv"
+    trap 'rm -rf "${UNZIP_DIR}"' EXIT
+fi
+
 FQ_TABLE="${TARGET_DB}.${TARGET_TABLE}"
 
 # Password: Teradata Wallet by default; TD_PASSWORD overrides it (dev/sandpit only)
