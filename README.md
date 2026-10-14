@@ -2,7 +2,7 @@
 
 [![Bash 4.0+](https://img.shields.io/badge/shell-Bash%204.0+-brightgreen.svg)](https://www.gnu.org/software/bash/)
 [![Teradata Parallel Transporter](https://img.shields.io/badge/TTU-TPT%20%2F%20tbuild-orange.svg)](https://www.teradata.com/)
-[![Platform: Linux / Git Bash / WSL](https://img.shields.io/badge/platform-Linux%20%7C%20Git%20Bash%20%7C%20WSL-lightgrey.svg)](https://www.kernel.org/)
+[![Platform: Linux / POSIX](https://img.shields.io/badge/platform-Linux%20%7C%20POSIX-lightgrey.svg)](https://www.kernel.org/)
 [![License: Proprietary](https://img.shields.io/badge/license-Proprietary-red.svg)](#)
 
 A high-performance, modular, and schema-agnostic flat-file ingestion engine for **Teradata Vantage**. 
@@ -108,7 +108,7 @@ The script adheres to standard enterprise Teradata authentication protocols:
 | `TDPID` | **Yes** | Teradata database hostname, IP, or COP alias. | `ms-env.teradata.com` |
 | `TDENV` | No | Prefix for environment-specific users/databases. | `D_` or empty |
 | `TD_PASSWORD` | Optional | Plaintext password (only for non-wallet dev environments). | `MySecretPassword!` |
-| `TPT_WORK_DIR`| No | Work directory for generated files, logs, and bad rows. | `/tmp/tpt_work` |
+| `TPT_WORK_DIR`| No | Work directory for generated files, logs, and bad rows. | `TPT_LOADER/tmp/tpt_work` |
 
 ### Production Authentication (Teradata Wallet)
 
@@ -146,7 +146,7 @@ load_csv_generic.sh -f <file|pattern> -t <table> [OPTIONS]
 | `-B` | `<batch_id>` | No | *auto-extracted* | Explicit Batch ID string stored in `INFA_BATCH_ID`. |
 | `-T` | `<timestamp>` | No | *auto-extracted* | Timestamp formatted `YYYY-MM-DD HH:MM:SS` for `INFA_LAST_REPLICATED`. |
 | `-a` | `<archive_dir>` | No | *none* | Directory to move loaded files to on success. |
-| `-w` | `<work_dir>` | No | `/tmp/tpt_work` | Local work directory for logs and generated files. |
+| `-w` | `<work_dir>` | No | `TPT_LOADER/tmp/tpt_work` | Local work directory for logs and generated files. |
 | `-v` | `<jobvars_file>` | No | *none* | Custom jobvariables file to provide default values. |
 
 ---

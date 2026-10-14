@@ -36,7 +36,7 @@
 #   -c  Timestamp extraction pattern (e.g. s/.*-\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)_\([0-9]\{2\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)\..*/\1-\2-\3 \4:\5:\6/p)
 #   -a  Archive directory: loaded files are moved there on success (default: none)
 #   -w  Work directory for job variables / logs / rejected rows
-#       (default: ${TPT_WORK_DIR:-/tmp/tpt_work})
+#       (default: ${TPT_WORK_DIR:-${SCRIPT_DIR}/tmp/tpt_work})
 #   -v  Job variables configuration file (TPT format: Key='Value').
 #       Values in this file serve as defaults, overridden by explicit CLI args.
 #
