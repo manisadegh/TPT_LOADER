@@ -53,13 +53,23 @@ if [ "${IS_ZIP}" = "Y" ]; then
             die 1 "unzip utility not available for decompressing ${f}"
         fi
     done
-    shopt -s nullglob
-    EXTRACTED_FILES=( "${UNZIP_DIR}"/*.csv )
-    shopt -u nullglob
-    [ ${#EXTRACTED_FILES[@]} -eq 0 ] && die 1 "No CSV files extracted from ZIP archive(s)"
+    EXTRACTED_FILES=()
+    for item in "${UNZIP_DIR}"/*; do
+        [ -f "${item}" ] && EXTRACTED_FILES+=( "${item}" )
+    done
+    [ ${#EXTRACTED_FILES[@]} -eq 0 ] && die 1 "No payload files extracted from ZIP archive(s)"
     FILES=( "${EXTRACTED_FILES[@]}" )
     DIRECTORY_PATH="${UNZIP_DIR}"
-    FILE_NAME="*.csv"
+    if [ ${#EXTRACTED_FILES[@]} -eq 1 ]; then
+        FILE_NAME="$(basename "${EXTRACTED_FILES[0]}")"
+    else
+        EXT="$(echo "${EXTRACTED_FILES[0]}" | sed -n 's/.*\.\([A-Za-z0-9_]*\)$/\1/p')"
+        if [ -n "${EXT}" ]; then
+            FILE_NAME="*.${EXT}"
+        else
+            FILE_NAME="*"
+        fi
+    fi
     trap 'rm -rf "${UNZIP_DIR}"' EXIT INT TERM
 fi
 
