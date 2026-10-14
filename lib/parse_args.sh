@@ -104,6 +104,7 @@ while getopts ":f:t:d:k:u:m:s:e:r:l:x:S:a:w:B:T:b:c:v:h" opt; do
     esac
 done
 
+# Strip surrounding single or double quotes from FILE_SPEC
 FILE_SPEC="${FILE_SPEC%\"}"
 FILE_SPEC="${FILE_SPEC#\"}"
 FILE_SPEC="${FILE_SPEC%\'}"

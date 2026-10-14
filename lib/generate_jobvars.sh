@@ -62,3 +62,4 @@ fi
     printf "PrivateLogReader      = 'reader_log'\n"
     printf "PrivateLogLoad        = 'load_log'\n"
 } > "${JOBVARS}" || die 1 "Cannot write ${JOBVARS}"
+chmod 600 "${JOBVARS}" 2>/dev/null || true

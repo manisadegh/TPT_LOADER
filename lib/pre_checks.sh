@@ -60,7 +60,7 @@ if [ "${IS_ZIP}" = "Y" ]; then
     FILES=( "${EXTRACTED_FILES[@]}" )
     DIRECTORY_PATH="${UNZIP_DIR}"
     FILE_NAME="*.csv"
-    trap 'rm -rf "${UNZIP_DIR}"' EXIT
+    trap 'rm -rf "${UNZIP_DIR}"' EXIT INT TERM
 fi
 
 FQ_TABLE="${TARGET_DB}.${TARGET_TABLE}"
