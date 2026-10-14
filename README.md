@@ -109,7 +109,6 @@ The script adheres to standard enterprise Teradata authentication protocols:
 | `TDENV` | No | Prefix for environment-specific users/databases. | `D_` or empty |
 | `TD_PASSWORD` | Optional | Plaintext password (only for non-wallet dev environments). | `MySecretPassword!` |
 | `TPT_WORK_DIR`| No | Work directory for generated files, logs, and bad rows. | `/tmp/tpt_work` |
-| `MSYS` | Optional | Set to `noglob` in Windows Git Bash to disable local globbing. | `export MSYS=noglob` |
 
 ### Production Authentication (Teradata Wallet)
 
@@ -159,9 +158,9 @@ load_csv_generic.sh -f <file|pattern> -t <table> [OPTIONS]
 ./load_csv_generic.sh \
   -f "/data/landing/file_userpvo-batch1003-.csv" \
   -t "ERP_USER" \
-  -d "globalmart_stg" \
-  -k "globalmart_wrk" \
-  -u "demo_user" \
+  -d "DEV0SIDFINSTG" \
+  -k "DEV0SIDFINWRK" \
+  -u "DEV0SIDFINADM" \
   -B "1003"
 ```
 
@@ -171,9 +170,9 @@ Ingesting split files (`part1.csv`, `part2.csv`, ...) with 4 reader instances an
 ./load_csv_generic.sh \
   -f "/data/loading/file_poheadersextractpvo-batch1002-*.csv" \
   -t "ERP_PO_HEADERS" \
-  -d "globalmart_stg" \
-  -k "globalmart_wrk" \
-  -u "demo_user" \
+  -d "DEV0SIDFINSTG" \
+  -k "DEV0SIDFINWRK" \
+  -u "DEV0SIDFINADM" \
   -m replace \
   -S 0 \
   -r 4 \
@@ -187,8 +186,8 @@ Appending delta records without truncating the existing table:
 ./load_csv_generic.sh \
   -f "/data/landing/delta_invoices_20261012.csv" \
   -t "ERP_AP_INVOICE_LINES" \
-  -d "globalmart_stg" \
-  -k "globalmart_wrk" \
+  -d "DEV0SIDFINSTG" \
+  -k "DEV0SIDFINWRK" \
   -m append \
   -B "DELTA_20261012"
 ```
@@ -235,8 +234,8 @@ When a TPT job is abruptly killed (server restart, network drop, timeout), Terad
 ```bash
 ./unlock_tpt_table.sh \
   -t "ERP_USER" \
-  -d "globalmart_stg" \
-  -u "demo_user" \
+  -d "DEV0SIDFINSTG" \
+  -u "DEV0SIDFINADM" \
   -m replace
 ```
 
@@ -276,11 +275,11 @@ The loader natively populates two enterprise audit columns in the target table:
 import subprocess
 
 cmd = [
-    "bash", "load_csv_generic.sh",
+    "/bin/bash", "load_csv_generic.sh",
     "-f", "/data/loading/file_userpvo-batch1003-.csv",
     "-t", "ERP_USER",
-    "-d", "globalmart_stg",
-    "-k", "globalmart_wrk",
+    "-d", "DEV0SIDFINSTG",
+    "-k", "DEV0SIDFINWRK",
     "-m", "replace",
     "-B", "1003"
 ]
@@ -299,9 +298,9 @@ load_task = BashOperator(
         "-f '{{ params.file_path }}' "
         "-t ERP_AP_INVOICE_HEADER "
         "-B '{{ ts_nodash }}' "
-        "-d globalmart_stg -k globalmart_wrk"
+        "-d DEV0SIDFINSTG -k DEV0SIDFINWRK"
     ),
-    env={"TDPID": "teradata_host", "USER": "svc_elt"}
+    env={"TDPID": "teradata_host", "USER": "DEV0SIDFINADM"}
 )
 ```
 
@@ -315,9 +314,7 @@ load_task = BashOperator(
 2. **Column Count Mismatch (Exit Code 1)**:
    - Ensure the delimiter specified with `-s` matches the file (comma, tab, semicolon).
    - Verify if source CSV has an unexpected number of columns relative to the target table definition.
-3. **Shell Wildcards on Windows**:
-   - In Git Bash on Windows, quote wildcard patterns (e.g. `-f "*.csv"`) or export `MSYS=noglob` to prevent local bash from expanding wildcards before TPT receives the pattern.
-4. **Inspecting Rejection Tables**:
-   - Error tables are stored in the utility database (`-k`, e.g. `globalmart_wrk`):
+3. **Inspecting Rejection Tables**:
+   - Error tables are stored in the utility database (`-k`, e.g. `DEV0SIDFINWRK`):
      - `<TABLE>_ET`: Acquisition errors (data conversion, invalid dates).
      - `<TABLE>_UV`: Application errors (uniqueness violations).

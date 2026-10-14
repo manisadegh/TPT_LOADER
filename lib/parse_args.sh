@@ -15,13 +15,7 @@ LOAD_INSTANCES=1
 MAX_SESSIONS=8
 SKIP_ROWS=1
 ARCHIVE_DIR=""
-DEFAULT_WORK_DIR="/tmp/tpt_work"
-# In WSL calling Windows TTU (tbuild.exe), /tmp maps to UNC (//wsl.localhost/...) which tbuild.exe cannot open.
-# Use local script work directory instead.
-if command -v wslpath >/dev/null 2>&1; then
-    DEFAULT_WORK_DIR="${SCRIPT_DIR}/.tpt_work"
-fi
-WORK_DIR="${TPT_WORK_DIR:-${DEFAULT_WORK_DIR}}"
+WORK_DIR="${TPT_WORK_DIR:-/tmp/tpt_work}"
 CLI_BATCH_ID=""
 CLI_TIMESTAMP=""
 

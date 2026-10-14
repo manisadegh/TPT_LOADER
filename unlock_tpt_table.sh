@@ -36,10 +36,7 @@ if [ "${LOAD_MODE}" = "append" ]; then
     log INFO "Mode is 'append' (MultiLoad). Sending RELEASE MLOAD to ${FQ_TABLE}..."
     
     BTEQ_CMD="bteq"
-    if ! command -v "${BTEQ_CMD}" >/dev/null 2>&1 && command -v bteq.exe >/dev/null 2>&1; then
-        BTEQ_CMD="bteq.exe"
-    fi
-    command -v "${BTEQ_CMD}" >/dev/null || die 1 "bteq / bteq.exe not found in PATH."
+    command -v "${BTEQ_CMD}" >/dev/null || die 1 "bteq not found in PATH."
 
     if [ -n "${TD_PASSWORD}" ]; then
         BTEQ_PWD="${TD_PASSWORD}"
@@ -75,10 +72,7 @@ else
     log INFO "Dernier job identifié : ${JOB_NAME}. Tentative de reprise (restart)..."
     
     TBUILD_CMD="tbuild"
-    if ! command -v "${TBUILD_CMD}" >/dev/null 2>&1 && command -v tbuild.exe >/dev/null 2>&1; then
-        TBUILD_CMD="tbuild.exe"
-    fi
-    command -v "${TBUILD_CMD}" >/dev/null || die 1 "tbuild / tbuild.exe not found in PATH."
+    command -v "${TBUILD_CMD}" >/dev/null || die 1 "tbuild not found in PATH."
 
     JOBVARS="${LAST_JOB_DIR}/jobvars.txt"
     TPT_SCRIPT="${LIB_DIR}/load_csv_generic.tpt"

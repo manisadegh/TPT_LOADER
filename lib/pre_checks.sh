@@ -8,18 +8,11 @@
 [ -z "${TDENV+x}" ]              && log WARN "TDENV is not set - using no environment prefix"
 [ -f "${TPT_SCRIPT}" ]           || die 1 "TPT script not found: ${TPT_SCRIPT}"
 
-# Detect tbuild and bteq (Linux native, Git Bash, or WSL calling Windows .exe)
+# Verify tbuild and bteq (POSIX / Unix)
+command -v tbuild >/dev/null 2>&1 || die 1 "tbuild not found in PATH"
+command -v bteq   >/dev/null 2>&1 || die 1 "bteq not found in PATH"
 TBUILD_CMD="tbuild"
 BTEQ_CMD="bteq"
-if ! command -v "${TBUILD_CMD}" >/dev/null 2>&1 && command -v tbuild.exe >/dev/null 2>&1; then
-    TBUILD_CMD="tbuild.exe"
-fi
-if ! command -v "${BTEQ_CMD}" >/dev/null 2>&1 && command -v bteq.exe >/dev/null 2>&1; then
-    BTEQ_CMD="bteq.exe"
-fi
-
-command -v "${TBUILD_CMD}" >/dev/null || die 1 "tbuild / tbuild.exe not found in PATH (TTU not installed?)"
-command -v "${BTEQ_CMD}"   >/dev/null || die 1 "bteq / bteq.exe not found in PATH"
 
 case "${LOAD_MODE}" in
     replace|append) ;;
