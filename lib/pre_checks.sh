@@ -114,6 +114,11 @@ AUTO_TS=""
 [ -n "${TIMESTAMP_PATTERN}" ] && AUTO_TS=$(echo "${FIRST_BASENAME}" | sed -n "${TIMESTAMP_PATTERN}")
 META_TS="${CLI_TIMESTAMP:-${AUTO_TS}}"
 
+# Normalize timestamp format YYYYMMDD_HHMMSS -> YYYY-MM-DD HH:MM:SS (avoids Teradata error 5404)
+if [[ "${META_TS}" =~ ^([0-9]{4})([0-9]{2})([0-9]{2})_([0-9]{2})([0-9]{2})([0-9]{2})$ ]]; then
+    META_TS="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]} ${BASH_REMATCH[4]}:${BASH_REMATCH[5]}:${BASH_REMATCH[6]}"
+fi
+
 # If no batch ID or timestamp was provided/extracted, fallback to the current time.
 # Use unix epoch for the batch ID (fits in a standard INTEGER) and ISO for the timestamp.
 if [ -z "${BATCH_ID}" ] || [ -z "${META_TS}" ]; then
