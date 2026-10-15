@@ -1,4 +1,4 @@
-# Generic Teradata Parallel Transporter (TPT) Loader - v3
+# Generic Teradata Parallel Transporter (TPT) Loader
 
 [![Bash 4.0+](https://img.shields.io/badge/shell-Bash%204.0+-brightgreen.svg)](https://www.gnu.org/software/bash/)
 [![Teradata Parallel Transporter](https://img.shields.io/badge/TTU-TPT%20%2F%20tbuild-orange.svg)](https://www.teradata.com/)
