@@ -33,31 +33,42 @@ for f in "${FILES[@]}"; do
     [ -s "${f}" ] || die 1 "File is empty or unreadable: ${f}"
 done
 
-# Decompress ZIP archives if passed directly
-IS_ZIP="N"
+# Decompress ZIP / GZ archives if passed directly
+IS_ARCHIVE="N"
 for f in "${FILES[@]}"; do
-    if [[ "${f,,}" == *.zip ]]; then
-        IS_ZIP="Y"
+    if [[ "${f,,}" == *.zip || "${f,,}" == *.gz ]]; then
+        IS_ARCHIVE="Y"
         break
     fi
 done
 
-if [ "${IS_ZIP}" = "Y" ]; then
+if [ "${IS_ARCHIVE}" = "Y" ]; then
     UNZIP_DIR="${WORK_DIR}/unzipped_$(date +%s)_$$"
-    mkdir -p "${UNZIP_DIR}" || die 1 "Cannot create unzip directory: ${UNZIP_DIR}"
-    log INFO "ZIP archive detected. Decompressing ${#FILES[@]} file(s) into temporary workspace ${UNZIP_DIR}..."
+    mkdir -p "${UNZIP_DIR}" || die 1 "Cannot create decompression directory: ${UNZIP_DIR}"
+    log INFO "Archive detected. Decompressing ${#FILES[@]} file(s) into temporary workspace ${UNZIP_DIR}..."
     for f in "${FILES[@]}"; do
-        if command -v unzip >/dev/null 2>&1; then
-            unzip -q -o "${f}" -d "${UNZIP_DIR}" || die 1 "Failed to decompress ${f}"
-        else
-            die 1 "unzip utility not available for decompressing ${f}"
+        if [[ "${f,,}" == *.zip ]]; then
+            if command -v unzip >/dev/null 2>&1; then
+                unzip -q -o "${f}" -d "${UNZIP_DIR}" || die 1 "Failed to decompress ${f}"
+            else
+                die 1 "unzip utility not available for decompressing ${f}"
+            fi
+        elif [[ "${f,,}" == *.gz ]]; then
+            base_f="$(basename "${f}")"
+            out_base="${base_f%.gz}"
+            [[ "${out_base}" != *.* ]] && out_base="${out_base}.csv"
+            if command -v gzip >/dev/null 2>&1; then
+                gzip -dc "${f}" > "${UNZIP_DIR}/${out_base}" || die 1 "Failed to decompress ${f}"
+            else
+                die 1 "gzip utility not available for decompressing ${f}"
+            fi
         fi
     done
     EXTRACTED_FILES=()
     for item in "${UNZIP_DIR}"/*; do
         [ -f "${item}" ] && EXTRACTED_FILES+=( "${item}" )
     done
-    [ ${#EXTRACTED_FILES[@]} -eq 0 ] && die 1 "No payload files extracted from ZIP archive(s)"
+    [ ${#EXTRACTED_FILES[@]} -eq 0 ] && die 1 "No payload files extracted from archive(s)"
     FILES=( "${EXTRACTED_FILES[@]}" )
     DIRECTORY_PATH="${UNZIP_DIR}"
     if [ ${#EXTRACTED_FILES[@]} -eq 1 ]; then
