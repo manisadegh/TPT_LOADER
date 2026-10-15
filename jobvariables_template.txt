@@ -1,40 +1,37 @@
 /* =========================================================================
-   Modèle de Fichier de Variables pour load_csv_generic.sh / TPT
+   Job Variables Template for load_csv_generic.sh / TPT
    =========================================================================
-   Ce fichier peut être passé au script via l'argument -v :
-   ./load_csv_generic.sh -v jobvariables_template.txt
-   
-   Les variables ci-dessous suivent la nomenclature officielle TPT. 
-   Les arguments passés en ligne de commande (CLI) écraseront ces valeurs.
+   This file can be passed to the loader via the -v argument:
+   ./load_csv_generic.sh -v jobvariables.txt
+
+   Values in this file act as defaults, overridden by explicit CLI flags.
+   Passwords should NOT be stored here; use Teradata Wallet or Key/Pass files.
    ========================================================================= */
 
-/* Fichiers Sources */
+/* Source Files */
 DirectoryPath      = ''
 FileName           = ''
-TextDelimiter      = ''
-SkipRows           = ''
+TextDelimiter      = ','
+SkipRows           = 1
 
-/* Connexion & Bases de données */
-TargetDatabase     = ''
-UtilityDatabase    = ''
-UserName           = ''
+/* Connection & Databases */
+TargetDatabase     = '${TDENV}SIDFINSTG'
+UtilityDatabase    = '${TDENV}SIDFINWRK'
+UserName           = '${TDENV}${SID_ADM_USER}'
 
-/* Cible et Mode de Chargement */
+/* Target and Ingestion Mode */
 TargetTable        = ''
-ConsumerOperator   = ''   /* 'LOAD_OPERATOR' (replace) ou 'UPDATE_OPERATOR' (append) */
+ConsumerOperator   = 'LOAD_OPERATOR'   /* 'LOAD_OPERATOR' (replace) or 'UPDATE_OPERATOR' (append) */
 
-/* Traçabilité (optionnelle, remplace l'auto-détection si renseigné) */
+/* Metadata Audit (optional, auto-extracted if empty) */
 BatchId            = ''
 Timestamp          = ''
-BatchIdPattern     = ''
-TimestampPattern   = ''
 
 /* Tuning & Instances */
-ErrorLimit         = ''
-ReaderInstances    = ''
-LoadInstances      = ''
-MaxSessions        = ''
+ErrorLimit         = 1
+ReaderInstances    = 1
+LoadInstances      = 1
+MaxSessions        = 8
 
-/* Répertoires Locaux (spécifiques au wrapper shell) */
-ArchiveDirectory   = ''
-WorkDirectory      = ''
+/* Local Working Directories */
+WorkDirectory      = 'tmp/tpt_work'
