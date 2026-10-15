@@ -11,6 +11,17 @@ A high-performance, modular, and schema-agnostic flat-file ingestion engine for 
 
 ---
 
+## 📚 Complete Documentation Suite
+
+Comprehensive operational, technical, and testing manuals are available in the [`docs/`](docs/) directory:
+
+- 📖 **[User How-To & CLI Reference](docs/01_user_how_to_guide.md)**: Command-line options, job variables reference, execution examples, and lock recovery commands.
+- 📐 **[Functional Specification](docs/02_functional_specification.md)**: Dynamic schema derivation, FastLoad vs MultiLoad engines, DAT-01/DAT-02 checks, and audit backfill.
+- ⚙️ **[Technical Manual & Function Inventory](docs/03_technical_manual_and_inventory.md)**: Modular POSIX bash framework, TPT template structure, BTEQ queries, and exit code propagation.
+- 🧪 **[Testing, Validation & QA Guide](docs/04_testing_and_qa_guide.md)**: Test matrices, pre-flight column misalignment tests, append safety tests, and automated regression harnesses.
+
+---
+
 ## Table of Contents
 
 - [Key Capabilities](#key-capabilities)
