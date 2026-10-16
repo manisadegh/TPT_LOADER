@@ -62,7 +62,7 @@ else
     log INFO "Mode is 'replace' (FastLoad). To unlock a table locked by TPT LOAD, we must resume the interrupted job."
     
     # Chercher le dernier répertoire de job généré pour cette table
-    LAST_JOB_DIR=$(ls -1td "${WORK_DIR}/LOAD_${TARGET_TABLE}_"* 2>/dev/null | head -1)
+    LAST_JOB_DIR=$(ls -1td "${WORK_DIR}/LOAD_${TARGET_TABLE}_"* "${WORK_DIR}/TPT_${TARGET_TABLE}_"* "${WORK_DIR}/"*${TARGET_TABLE}* 2>/dev/null | head -1)
     
     if [ -z "${LAST_JOB_DIR}" ]; then
         die 1 "Impossible de trouver l'historique du job dans ${WORK_DIR} pour la table ${TARGET_TABLE}. Pour libérer la table manuellement sans redémarrer le job, vous devrez faire un DROP/CREATE de la table."

@@ -3,7 +3,7 @@
 # Job variables file
 # ---------------------------------------------------------------------------
 RUN_TS="$(date '+%Y%m%d_%H%M%S')"
-JOB_NAME="LOAD_${TARGET_TABLE}_${RUN_TS}"
+JOB_NAME="TPT_${TARGET_TABLE}_${RUN_TS}"
 RUN_DIR="${WORK_DIR}/${JOB_NAME}"
 mkdir -p "${RUN_DIR}" && chmod 700 "${RUN_DIR}" || die 1 "Cannot create work dir ${RUN_DIR}"
 JOBVARS="${RUN_DIR}/jobvars.txt"

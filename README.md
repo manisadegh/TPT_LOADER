@@ -86,7 +86,7 @@ TPT_LOADER/
 │   ├── archive_files.sh        # Atomic move to archive directory on job success
 │   ├── bteq_check.sh           # Database column introspection via BTEQ
 │   ├── env_and_helpers.sh      # Logging utilities and environment validation
-│   ├── generate_jobvars.sh     # Dynamic synthesis of TPT job variables
+│   ├── generate_jobvars.sh     # Dynamic synthesis of TPT job variables (TPT_<TARGET_TABLE>_<RUN_TS>)
 │   ├── load_csv_generic.tpt    # Master generic TPT script definition
 │   ├── parse_args.sh           # Command-line option parsing and input sanitizer
 │   ├── pre_checks.sh           # File and filesystem integrity verifications
