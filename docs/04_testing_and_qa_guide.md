@@ -2,7 +2,7 @@
 
 ## 1. Testing Scope & Objectives
 
-The **TPT_LOADER** test framework validates the generic loader's ability to ingest delimited data into Teradata Vantage, enforce pre-flight data contracts, handle both FastLoad and MultiLoad engines, and recover from table lock states.
+The **TPT_LOADER** test framework validates the generic loader's ability to ingest delimited data into Teradata Vantage, enforce pre-flight data contracts, handle both FastLoad and MultiLoad engines, verify fast-path BTEQ pre-check bypass (`-C -M 2`), and recover from table lock states.
 
 ```mermaid
 flowchart LR
@@ -14,10 +14,11 @@ flowchart LR
         T5["DAT-02: Orphan NULL in Append"]
         T6["Column Count Mismatch"]
         T7["Locked Table (Error 2652)"]
+        T8["Fast-Path Pre-Check Bypass (-C)"]
     end
 
     subgraph LoaderEngine["TPT_LOADER Engine"]
-        PreFlight["Pre-Checks & DBC Introspection"]
+        PreFlight["Pre-Checks & DBC Introspection / -C Bypass"]
         TPTExec["tbuild (FastLoad / MultiLoad)"]
         MetaSync["Metadata Update (BTEQ)"]
         Unlock["unlock_tpt_table.sh"]
@@ -29,6 +30,7 @@ flowchart LR
         A3["DAT-01 Abort (RC 1)"]
         A4["DAT-02 Abort (RC 1)"]
         A5["Lock Recovery Success (RC 0)"]
+        A6["BTEQ Pre-Check Bypassed Cleanly"]
     end
 
     TestInputs --> LoaderEngine --> Assertions
@@ -63,10 +65,36 @@ cd /sg/local/sid/home/Dsidadm/DATA_LOADER/PROCESSING_TOOLS/TPT_LOADER
 | **TC-TPT-06** | Column Count Mismatch | CSV with 1 missing column | Pre-flight check detects count difference; aborts. | 1 |
 | **TC-TPT-07** | Error 2652 Lock Recovery | Table left in FastLoad Paused | `unlock_tpt_table.sh` resumes job, releases lock. | 0 |
 | **TC-TPT-08** | In-Memory Metadata Padding | CSV lacking audit cols | Wire-speed padding in memory; `RecordErrorFile` disabled. | 0 |
+| **TC-TPT-09** | Fast-Path Pre-Check Bypass | Flag `-C -M 2` provided | Bypasses BTEQ catalog query; streams data directly via TPT. | 0 |
 
 ---
 
 ## 4. Detailed Procedures & Assertion Checklists
+
+### Test Case: TC-TPT-09 (Fast-Path BTEQ Pre-Check Bypass)
+- **Objective**: Verify that `-C` skips BTEQ catalog queries in replace mode while `-M 2` configures in-memory metadata padding.
+- **Procedure**:
+  ```bash
+  ./load_csv_generic.sh \
+    -f "${TPT_TEST_DIR}/data/nominal.csv" \
+    -t ERP_MSH_USER \
+    -d DEV0SIDFINSTG \
+    -m replace \
+    -C \
+    -M 2 \
+    -B "9999" \
+    -T "2026-10-15 12:00:00" \
+    -w "${TPT_TEST_DIR}/work"
+  ```
+- **Assertions**:
+  - Log output confirms BTEQ query bypass:
+    ```text
+    Skipping BTEQ DBC.ColumnsV pre-check (-C specified; schema pre-validated by Orchestrator, HAS_META=2).
+    ```
+  - TPT executes successfully with exit code 0.
+  - Rows loaded into `ERP_MSH_USER` with `INFA_BATCH_ID = '9999'`.
+
+---
 
 ### Test Case: TC-TPT-04 (DAT-01 Positional & Named Alignment Check)
 - **Objective**: Verify that the loader refuses to run if CSV column order does not match Teradata staging column order.

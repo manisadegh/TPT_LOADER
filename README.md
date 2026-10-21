@@ -7,7 +7,7 @@
 
 A high-performance, modular, and schema-agnostic flat-file ingestion engine for **Teradata Vantage**. 
 
-`TPT_LOADER` ingests delimited text files (Oracle Fusion BICC extracts, general CSV/TSV data) into Teradata staging tables with zero hardcoded table DDLs, dynamic schema introspection via BTEQ, automated table unlocking, audit metadata injection, and dual ingestion modes (`FastLoad` and `MultiLoad`).
+`TPT_LOADER` ingests delimited text files (Oracle Fusion BICC extracts, general CSV/TSV data) into Teradata staging tables with zero hardcoded table DDLs, dynamic schema introspection via BTEQ, fast-path BTEQ pre-check bypass (`-C -M 2`), automated table unlocking, audit metadata injection, and dual ingestion modes (`FastLoad` and `MultiLoad`).
 
 ---
 
@@ -15,8 +15,8 @@ A high-performance, modular, and schema-agnostic flat-file ingestion engine for 
 
 Comprehensive operational, technical, and testing manuals are available in the [`docs/`](docs/) directory:
 
-- 📖 **[User How-To & CLI Reference](docs/01_user_how_to_guide.md)**: Command-line options, job variables reference, execution examples, and lock recovery commands.
-- 📐 **[Functional Specification](docs/02_functional_specification.md)**: Dynamic schema derivation, FastLoad vs MultiLoad engines, DAT-01/DAT-02 checks, and audit backfill.
+- 📖 **[User How-To & CLI Reference](docs/01_user_how_to_guide.md)**: Command-line options, fast-path flags (`-C -M 2`), job variables reference, execution examples, and lock recovery commands.
+- 📐 **[Functional Specification](docs/02_functional_specification.md)**: Dynamic schema derivation, FastLoad vs MultiLoad engines, fast-path BTEQ pre-check bypass, DAT-01/DAT-02 checks, and audit backfill.
 - ⚙️ **[Technical Manual & Function Inventory](docs/03_technical_manual_and_inventory.md)**: Modular POSIX bash framework, TPT template structure, BTEQ queries, and exit code propagation.
 - 🧪 **[Testing, Validation & QA Guide](docs/04_testing_and_qa_guide.md)**: Test matrices, pre-flight column misalignment tests, append safety tests, and automated regression harnesses.
 
@@ -43,7 +43,8 @@ Comprehensive operational, technical, and testing manuals are available in the [
 
 ## Key Capabilities
 
-- **Zero-Hardcoding Dynamic Schemas**: The loader introspects the destination table directly from Teradata data dictionaries (`DBC.ColumnsV`) at runtime, dynamically mapping input fields to table attributes without maintaining static TPT scripts.
+- **Zero-Hardcoding Dynamic Schemas**: Introspects the destination table directly from Teradata data dictionaries (`DBC.ColumnsV`) at runtime, dynamically mapping input fields to table attributes without maintaining static TPT scripts.
+- **Fast-Path BTEQ Pre-Check Bypass (`-C -M 2`)**: When invoked by upstream orchestrators that pre-validate or auto-migrate schemas (such as `DATA_INGESTION_ORCHESTRATOR`), skips redundant catalog lookups in replace mode while maintaining safety checks in append mode.
 - **Dual Load Engines**:
   - **`replace` Mode (FastLoad)**: Utilizes the TPT `Load` operator with maximum parallel throughput, preceding the load with a fast table truncation (`DELETE ALL`).
   - **`append` Mode (MultiLoad)**: Utilizes the TPT `Update` operator to append incremental batches into existing tables without truncating pre-existing data.
@@ -62,9 +63,9 @@ The loader follows a modular UNIX architecture where `load_csv_generic.sh` acts 
 load_csv_generic.sh
   │
   ├── 1. env_and_helpers.sh     --> Initializes environment, formatting & logger
-  ├── 2. parse_args.sh          --> Parses and validates CLI parameters & flags
+  ├── 2. parse_args.sh          --> Parses and validates CLI parameters & flags (-C, -M)
   ├── 3. pre_checks.sh          --> Checks file presence, readability, and non-vacuity
-  ├── 4. bteq_check.sh          --> Queries DBC metadata & validates table column count
+  ├── 4. bteq_check.sh          --> Queries DBC metadata or bypasses (-C) & runs DAT-01/02
   ├── 5. generate_jobvars.sh    --> Synthesizes dynamic jobvariables.txt configuration
   ├── 6. run_tpt.sh             --> Invokes 'tbuild' engine against load_csv_generic.tpt
   ├── 7. update_metadata.sh     --> Validates audit columns (INFA_BATCH_ID / REPLICATED)
@@ -84,8 +85,8 @@ TPT_LOADER/
 │   └── global.env              # Environment defaults (database names, user defaults)
 ├── lib/
 │   ├── archive_files.sh        # Atomic move to archive directory on job success
-│   ├── bteq_check.sh           # Database column introspection via BTEQ
-│   ├── env_and_helpers.sh      # Logging utilities and environment validation
+│   ├── bteq_check.sh           # Database column introspection via BTEQ (-C bypass)
+│   ├── env_and_helpers.sh      # Logging utilities, SQL sanitization, clean_column_name
 │   ├── generate_jobvars.sh     # Dynamic synthesis of TPT job variables (TPT_<TARGET_TABLE>_<RUN_TS>)
 │   ├── load_csv_generic.tpt    # Master generic TPT script definition
 │   ├── parse_args.sh           # Command-line option parsing and input sanitizer
@@ -99,7 +100,7 @@ TPT_LOADER/
 
 ## Prerequisites & System Requirements
 
-- **Operating System**: Linux (RedHat, CentOS, Rocky, Ubuntu, Debian) or Windows (via Git Bash / WSL).
+- **Operating System**: Linux (RedHat, CentOS, Rocky, Ubuntu, Debian) or POSIX shell runtime.
 - **Teradata Tools and Utilities (TTU)**:
   - `tbuild` (Teradata Parallel Transporter Base & Stream/Load/Update operators).
   - `bteq` (Basic Teradata Query utility).
@@ -117,7 +118,7 @@ The script adheres to standard enterprise Teradata authentication protocols:
 | Variable | Required | Description | Example |
 | :--- | :---: | :--- | :--- |
 | `TDPID` | **Yes** | Teradata database hostname, IP, or COP alias. | `ms-env.teradata.com` |
-| `TDENV` | No | Prefix for environment-specific users/databases. | `D_` or empty |
+| `TDENV` | No | Prefix for environment-specific users/databases. | `DEV0` or empty |
 | `TD_PASSWORD` | Optional | Plaintext password (only for non-wallet dev environments). | `MySecretPassword!` |
 | `TPT_WORK_DIR`| No | Work directory for generated files, logs, and bad rows. | `TPT_LOADER/tmp/tpt_work` |
 
@@ -149,13 +150,16 @@ load_csv_generic.sh -f <file|pattern> -t <table> [OPTIONS]
 | `-u` | `<user>` | No | `${TDENV}${SID_ADM_USER}` | Teradata logon username. |
 | `-m` | `replace\|append` | No | `replace` | Ingestion mode: `replace` (FastLoad) or `append` (MultiLoad). |
 | `-s` | `<delimiter>` | No | `,` | CSV field delimiter character. |
-| `-S` | `<skip_rows>` | No | `1` | Number of header rows to skip in the source file. |
+| `-S` | `<skip_rows>` | No | `1` | Number of header rows to skip in the source file (`0` for headless CSVs). |
+| `-Y` | `<Y\|N>` | No | `N` | Skip header rows on every file when loading wildcards (`SkipRowsEveryFile`). |
 | `-e` | `<error_limit>` | No | `1` | Number of rejected records before aborting the job. |
 | `-r` | `<reader_instances>`| No | `1` | Parallel DataConnector reader instances. |
 | `-l` | `<load_instances>` | No | `1` | Parallel Load / Update operator instances. |
 | `-x` | `<max_sessions>` | No | `8` | Maximum concurrent database sessions allocated to the load. |
 | `-B` | `<batch_id>` | No | *auto-extracted* | Explicit Batch ID string stored in `INFA_BATCH_ID`. |
 | `-T` | `<timestamp>` | No | *auto-extracted* | Timestamp formatted `YYYY-MM-DD HH:MM:SS` for `INFA_LAST_REPLICATED`. |
+| `-C` | None | No | `N` | Fast-path flag: skips BTEQ `DBC.ColumnsV` pre-check when pre-validated by Orchestrator. |
+| `-M` | `<0\|2>` | No | `2` | Audit metadata columns count override when used with `-C`. |
 | `-a` | `<archive_dir>` | No | *none* | Directory to move loaded files to on success. |
 | `-w` | `<work_dir>` | No | `TPT_LOADER/tmp/tpt_work` | Local work directory for logs and generated files. |
 | `-v` | `<jobvars_file>` | No | *none* | Custom jobvariables file to provide default values. |
@@ -164,19 +168,23 @@ load_csv_generic.sh -f <file|pattern> -t <table> [OPTIONS]
 
 ### Usage Examples
 
-#### 1. Standard Single File Load (FastLoad / Replace)
+#### 1. Fast-Path Load (Invoked by Orchestrator with `-C -M 2`)
 ```bash
 ./load_csv_generic.sh \
-  -f "/data/landing/file_userpvo-batch1003-.csv" \
+  -f "/data/loading/file_userpvo-batch1003-.csv" \
   -t "ERP_USER" \
   -d "DEV0SIDFINSTG" \
   -k "DEV0SIDFINWRK" \
   -u "DEV0SIDFINADM" \
-  -B "1003"
+  -m replace \
+  -C \
+  -M 2 \
+  -B "1003" \
+  -T "2026-10-15 12:00:11"
 ```
 
 #### 2. Multi-Chunk Wildcard Load (High Performance)
-Ingesting split files (`part1.csv`, `part2.csv`, ...) with 4 reader instances and `-S 0` (assuming chunk 1 header was stripped):
+Ingesting split files (`part1.csv`, `part2.csv`, ...) with 4 reader instances and `-S 0` (first chunk header stripped):
 ```bash
 ./load_csv_generic.sh \
   -f "/data/loading/file_poheadersextractpvo-batch1002-*.csv" \
@@ -185,6 +193,8 @@ Ingesting split files (`part1.csv`, `part2.csv`, ...) with 4 reader instances an
   -k "DEV0SIDFINWRK" \
   -u "DEV0SIDFINADM" \
   -m replace \
+  -C \
+  -M 2 \
   -S 0 \
   -r 4 \
   -x 12 \
@@ -237,18 +247,8 @@ When a TPT job is abruptly killed (server restart, network drop, timeout), Terad
 | `-t` | `<table>` | Name of the locked table (mandatory). |
 | `-d` | `<database>` | Database where the locked table resides. |
 | `-u` | `<user>` | Logon user for Teradata. |
-| `-m` | `replace` | Clears FastLoad lock by running a dummy/restart TPT pass. |
+| `-m` | `replace` | Clears FastLoad lock by running a dummy/restart TPT pass and backfills metadata. |
 | `-m` | `append` | Clears MultiLoad lock by executing `RELEASE MLOAD <table>;` via BTEQ. |
-
-### Example
-
-```bash
-./unlock_tpt_table.sh \
-  -t "ERP_USER" \
-  -d "DEV0SIDFINSTG" \
-  -u "DEV0SIDFINADM" \
-  -m replace
-```
 
 ---
 
@@ -262,7 +262,7 @@ The loader natively populates two enterprise audit columns in the target table:
    - Extracted from `-B <batch_id>` or filename patterns (`-batch<id>-`).
 
 > [!NOTE]
-> If these columns exist in the target Teradata table, the script binds them dynamically without requiring them in the source CSV extract.
+> When `-M 2` is supplied, `FILE_READER` sets `AcceptMissingColumns = 'Y'` and `RecordErrorFile = ""`. The Teradata DataConnector pads the audit columns with `NULL` in memory at wire speed, and `update_metadata.sh` executes the targeted SQL `UPDATE` post-load.
 
 ---
 
@@ -274,46 +274,6 @@ The loader natively populates two enterprise audit columns in the target table:
 | **`1`** | **USAGE / PRE-CHECK** | File not found, file empty, or column count mismatch. | Verify input file path, delimiter, and target table columns. |
 | **`2`** | **DATABASE CONNECTION** | Target table not found, invalid credentials, or TDPID unreachable. | Check Teradata network access, logon, and target schema. |
 | **`3`** | **TPT JOB FAILURE** | TPT execution aborted (`tbuild` exit code `8` or `12`). | Inspect `$TPT_WORK_DIR/<job>.log` for rejected rows and error tables. |
-
----
-
-## Integration with Schedulers & Orchestrators
-
-`TPT_LOADER` is designed for seamless integration with enterprise orchestration engines:
-
-### Invocation from Python Orchestrator (`subprocess`)
-```python
-import subprocess
-
-cmd = [
-    "/bin/bash", "load_csv_generic.sh",
-    "-f", "/data/loading/file_userpvo-batch1003-.csv",
-    "-t", "ERP_USER",
-    "-d", "DEV0SIDFINSTG",
-    "-k", "DEV0SIDFINWRK",
-    "-m", "replace",
-    "-B", "1003"
-]
-
-res = subprocess.run(cmd, capture_output=True, text=True)
-if res.returncode == 0:
-    print("Ingestion succeeded!")
-```
-
-### Invocation from Apache Airflow (`BashOperator`)
-```python
-load_task = BashOperator(
-    task_id="tpt_load_invoices",
-    bash_command=(
-        "/opt/tpt/load_csv_generic.sh "
-        "-f '{{ params.file_path }}' "
-        "-t ERP_AP_INVOICE_HEADER "
-        "-B '{{ ts_nodash }}' "
-        "-d DEV0SIDFINSTG -k DEV0SIDFINWRK"
-    ),
-    env={"TDPID": "teradata_host", "USER": "DEV0SIDFINADM"}
-)
-```
 
 ---
 

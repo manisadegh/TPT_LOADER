@@ -12,11 +12,11 @@ TPT_LOADER/
 ├── config/
 │   └── global.env                # Default environment variables & DB names
 └── lib/                          # Specialized modular bash components
-    ├── env_and_helpers.sh        # Logging (log, die) and path normalization
-    ├── parse_args.sh             # Two-pass configuration & CLI argument parsing
+    ├── env_and_helpers.sh        # Logging (log, die), clean_column_name, path normalization
+    ├── parse_args.sh             # Two-pass configuration & CLI argument parsing (-C, -M)
     ├── pre_checks.sh             # Binary presence, file existence, regex parsing
-    ├── bteq_check.sh             # DBC.ColumnsV query, DAT-01, and DAT-02 checks
-    ├── generate_jobvars.sh       # Runtime jobvars.txt synthesis & memory padding
+    ├── bteq_check.sh             # Fast-path bypass (-C) or DBC.ColumnsV query & DAT-01/02
+    ├── generate_jobvars.sh       # Runtime jobvars.txt synthesis & memory padding (HAS_META=2)
     ├── load_csv_generic.tpt      # Parameterized generic TPT script
     ├── run_tpt.sh                # Execution of tbuild & return code parsing
     ├── update_metadata.sh        # BTEQ metadata backfill (INFA_BATCH_ID / TS)
@@ -26,10 +26,10 @@ TPT_LOADER/
 ```mermaid
 graph TD
     Main["load_csv_generic.sh"] --> Env["1. env_and_helpers.sh"]
-    Main --> Parse["2. parse_args.sh (Two-Pass Loader)"]
+    Main --> Parse["2. parse_args.sh (Two-Pass Loader, -C, -M)"]
     Main --> Pre["3. pre_checks.sh"]
-    Main --> Bteq["4. bteq_check.sh (DBC.ColumnsV / DAT-01 / DAT-02)"]
-    Main --> Gen["5. generate_jobvars.sh"]
+    Main --> Bteq["4. bteq_check.sh (-C Bypass OR DBC.ColumnsV / DAT-01 / DAT-02)"]
+    Main --> Gen["5. generate_jobvars.sh (HAS_META=2 -> RecordErrorFile='')"]
     Gen -.-> TPT["load_csv_generic.tpt"]
     Main --> Run["6. run_tpt.sh (tbuild)"]
     Main --> Meta["7. update_metadata.sh (BTEQ Update)"]
@@ -54,16 +54,17 @@ graph TD
   2. `die(code, message)`: Logs message at `ERROR` level and exits shell immediately with `exit ${code}`.
   3. `validate_identifier(val, label)`: Enforces `^[A-Za-z0-9_]+$` on SQL identifiers (`TARGET_DB`, `TARGET_TABLE`, `WRK_DB`).
   4. `escape_sql_literal(val)`: Escapes single quotes (`'` $\rightarrow$ `''`) before SQL interpolation.
-  5. `clean_column_name(col_raw)`: Sanitizes CSV header column names (`[^A-Za-z0-9_]` $\rightarrow$ `_`, deduplicates `_`, uppercase) in 100% parity with `schema_guard.py`.
+  5. `clean_column_name(col_raw)`: Sanitizes CSV header column names (`[^A-Za-z0-9_]` $\rightarrow$ `_`, deduplicates `_`, uppercase) in 100% parity with `COMMON/dataloader_core/schema_reader.py`.
 
 ---
 
 ### 2.3 Module: `lib/parse_args.sh`
 - **Path**: `lib/parse_args.sh`
 - **Role**: Implements a robust **two-pass configuration loader**:
-  - **Pass 1**: Loads defaults from `config/global.env` and optional `-v <jobvars>` configuration file (including `SkipRowsEveryFile`).
-  - **Pass 2**: Parses explicit CLI flags (`-f`, `-t`, `-m`, `-B`, `-T`, `-S`, `-Y`, etc.), overriding defaults.
+  - **Pass 1**: Loads defaults from `config/global.env` and optional `-v <jobvars>` configuration file (including `SkipRowsEveryFile`, `SkipBteqCheck`, `HasMeta`).
+  - **Pass 2**: Parses explicit CLI flags (`-f`, `-t`, `-m`, `-B`, `-T`, `-S`, `-Y`, `-C`, `-M`), overriding defaults.
   - Sanitizes quotes and whitespace from arguments.
+  - Recognizes `-C` (`SKIP_BTEQ_CHECK="Y"`) and `-M <has_meta>` (`CLI_HAS_META="${OPTARG}"`).
 
 ---
 
@@ -79,11 +80,11 @@ graph TD
 
 ### 2.5 Module: `lib/bteq_check.sh`
 - **Path**: `lib/bteq_check.sh`
-- **Role**: Performs pre-flight database introspection via BTEQ:
-  1. Queries `DBC.ColumnsV` for target table column count (`NBCOL`).
-  2. Detects presence of audit columns (`HAS_META = 2` if `INFA_BATCH_ID` and `INFA_LAST_REPLICATED` exist).
-  3. **DAT-01 named column alignment check**: When `SkipRows > 0`, iterates through CSV header columns and compares each column name and ordinal position against `DBC.ColumnsV`.
-  4. **DAT-02 append safety check**: When `LOAD_MODE = 'append'`, queries `SELECT COUNT(*) FROM table WHERE INFA_BATCH_ID IS NULL`. If count $>0$, halts to avoid historical data corruption.
+- **Role**: Performs pre-flight database introspection via BTEQ or fast-path bypass:
+  1. **Fast-Path Bypass (`-C`)**: If `SKIP_BTEQ_CHECK == "Y"`, assigns `HAS_META="${CLI_HAS_META:-2}"` and skips querying `DBC.ColumnsV`.
+  2. **DBC Introspection**: When `-C` is omitted, queries `DBC.ColumnsV` for target table column count (`NBCOL`) and checks presence of audit columns (`HAS_META = 2`).
+  3. **DAT-01 named column alignment check**: When `SkipRows > 0` and `-C` is omitted, iterates through CSV header columns and compares each column name and ordinal position against `DBC.ColumnsV`.
+  4. **DAT-02 append safety check**: When `LOAD_MODE = 'append'` and `HAS_META == 2`, queries `SELECT COUNT(*) FROM table WHERE INFA_BATCH_ID IS NULL`. If count $>0$, halts immediately to avoid historical data corruption (enforced even if `-C` is specified).
 
 ---
 
@@ -132,7 +133,7 @@ graph TD
   ```sql
   UPDATE ${TARGET_DB}.${TARGET_TABLE}
   SET INFA_BATCH_ID = '${BATCH_ID}',
-      INFA_LAST_REPLICATED = '${META_TS}'
+       INFA_LAST_REPLICATED = '${META_TS}'
   WHERE INFA_BATCH_ID IS NULL;
   ```
 
