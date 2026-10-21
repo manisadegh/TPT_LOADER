@@ -94,6 +94,8 @@ The loader reads global environment settings from `/sg/local/sid/home/Dsidadm/DA
 | `-l` | `<instances>` | `1` | Load/Update operator instances. |
 | `-x` | `<sessions>` | `8` | Maximum Teradata sessions for the consumer operator. |
 | `-w` | `<work_dir>` | `tmp/tpt_work` | Local directory for temporary `jobvars.txt` and run logs. |
+| `-C` | None | `N` | Skip redundant BTEQ `DBC.ColumnsV` pre-check when pre-validated by Orchestrator. |
+| `-M` | `<0\|2>` | `2` | Explicit `HAS_META` audit columns count override when used with `-C`. |
 | `-a` | `<archive_dir>` | None | Optional directory to move source files after successful load. |
 | `-v` | `<file>` | None | Job variables config file providing default values. |
 

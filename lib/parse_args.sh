@@ -19,6 +19,8 @@ ARCHIVE_DIR=""
 WORK_DIR="${TPT_WORK_DIR:-${SCRIPT_DIR}/tmp/tpt_work}"
 CLI_BATCH_ID=""
 CLI_TIMESTAMP=""
+SKIP_BTEQ_CHECK="N"
+CLI_HAS_META=""
 
 BATCH_ID_PATTERN=""
 TIMESTAMP_PATTERN=""
@@ -26,9 +28,11 @@ TIMESTAMP_PATTERN=""
 # First pass: look for a job variables config file (-v)
 OPTIND=1
 JOB_VARS_FILE=""
-while getopts ":f:t:d:k:u:m:s:e:r:l:x:S:Y:a:w:B:T:b:c:v:h" opt; do
+while getopts ":f:t:d:k:u:m:s:e:r:l:x:S:Y:a:w:B:T:b:c:v:CM:h" opt; do
     case "${opt}" in
         v) JOB_VARS_FILE="${OPTARG}" ;;
+        C) SKIP_BTEQ_CHECK="Y" ;;
+        M) CLI_HAS_META="${OPTARG}" ;;
     esac
 done
 
@@ -79,7 +83,7 @@ fi
 
 # Second pass: apply CLI arguments (overrides config file)
 OPTIND=1
-while getopts ":f:t:d:k:u:m:s:e:r:l:x:S:Y:a:w:B:T:b:c:v:h" opt; do
+while getopts ":f:t:d:k:u:m:s:e:r:l:x:S:Y:a:w:B:T:b:c:v:CM:h" opt; do
     case "${opt}" in
         f) FILE_SPEC="${OPTARG}" ;;
         t) TARGET_TABLE="${OPTARG}" ;;
@@ -100,6 +104,8 @@ while getopts ":f:t:d:k:u:m:s:e:r:l:x:S:Y:a:w:B:T:b:c:v:h" opt; do
         T) CLI_TIMESTAMP="${OPTARG}" ;;
         b) BATCH_ID_PATTERN="${OPTARG}" ;;
         c) TIMESTAMP_PATTERN="${OPTARG}" ;;
+        C) SKIP_BTEQ_CHECK="Y" ;;
+        M) CLI_HAS_META="${OPTARG}" ;;
         v) ;; # Already handled in first pass
         h) usage; exit 0 ;;
         :) usage; die 1 "Option -${OPTARG} requires a value" ;;
