@@ -30,19 +30,22 @@ source "${LIB_DIR}/parse_args.sh" "$@"
 [ -z "${TARGET_TABLE}" ] && die 1 "Target table (-t or TargetTable in -v) is required."
 [ -z "${TDPID}" ] && die 1 "TDPID environment variable is required."
 
+validate_identifier "${TARGET_DB}" "TARGET_DB"
+validate_identifier "${TARGET_TABLE}" "TARGET_TABLE"
+
 FQ_TABLE="${TARGET_DB}.${TARGET_TABLE}"
+
+BTEQ_CMD="bteq"
+command -v "${BTEQ_CMD}" >/dev/null || die 1 "bteq not found in PATH."
+
+if [ -n "${TD_PASSWORD}" ]; then
+    BTEQ_PWD="${TD_PASSWORD}"
+else
+    BTEQ_PWD="\$tdwallet(${TD_USER})"
+fi
 
 if [ "${LOAD_MODE}" = "append" ]; then
     log INFO "Mode is 'append' (MultiLoad). Sending RELEASE MLOAD to ${FQ_TABLE}..."
-    
-    BTEQ_CMD="bteq"
-    command -v "${BTEQ_CMD}" >/dev/null || die 1 "bteq not found in PATH."
-
-    if [ -n "${TD_PASSWORD}" ]; then
-        BTEQ_PWD="${TD_PASSWORD}"
-    else
-        BTEQ_PWD="\$tdwallet(${TD_USER})"
-    fi
 
     BTEQ_OUT=$(${BTEQ_CMD} <<EOF 2>&1
 .logon ${TDPID}/${TD_USER},${BTEQ_PWD}
@@ -59,17 +62,17 @@ EOF
     log INFO "Table ${FQ_TABLE} unlocked successfully."
 
 else
-    log INFO "Mode is 'replace' (FastLoad). To unlock a table locked by TPT LOAD, we must resume the interrupted job."
+    log INFO "Mode is 'replace' (FastLoad). Resuming interrupted TPT LOAD job to unlock ${FQ_TABLE}..."
     
-    # Chercher le dernier répertoire de job généré pour cette table
+    # Locate the latest job directory generated for this target table
     LAST_JOB_DIR=$(ls -1td "${WORK_DIR}/LOAD_${TARGET_TABLE}_"* "${WORK_DIR}/TPT_${TARGET_TABLE}_"* "${WORK_DIR}/"*${TARGET_TABLE}* 2>/dev/null | head -1)
     
     if [ -z "${LAST_JOB_DIR}" ]; then
-        die 1 "Impossible de trouver l'historique du job dans ${WORK_DIR} pour la table ${TARGET_TABLE}. Pour libérer la table manuellement sans redémarrer le job, vous devrez faire un DROP/CREATE de la table."
+        die 1 "Unable to locate previous job history in ${WORK_DIR} for table ${TARGET_TABLE}. To unlock the table manually without resuming the job, drop and recreate the table."
     fi
     
     JOB_NAME=$(basename "${LAST_JOB_DIR}")
-    log INFO "Dernier job identifié : ${JOB_NAME}. Tentative de reprise (restart)..."
+    log INFO "Latest job identified: ${JOB_NAME}. Attempting TPT restart..."
     
     TBUILD_CMD="tbuild"
     command -v "${TBUILD_CMD}" >/dev/null || die 1 "tbuild not found in PATH."
@@ -77,19 +80,57 @@ else
     JOBVARS="${LAST_JOB_DIR}/jobvars.txt"
     TPT_SCRIPT="${LIB_DIR}/load_csv_generic.tpt"
     
-    log INFO "Exécution de la reprise de TPT : ${TBUILD_CMD} -f ${TPT_SCRIPT} -v ${JOBVARS} -j ${JOB_NAME}"
-    ${TBUILD_CMD} -f "$(to_native_path "${TPT_SCRIPT}")" -v "$(to_native_path "${JOBVARS}")" -j "${JOB_NAME}"
+    log INFO "Executing TPT resume: ${TBUILD_CMD} -f ${TPT_SCRIPT} -v ${JOBVARS} -j ${JOB_NAME}"
+    ${TBUILD_CMD} -f "${TPT_SCRIPT}" -v "${JOBVARS}" -j "${JOB_NAME}"
     RC=$?
     
     if [ $RC -eq 0 ] || [ $RC -eq 4 ]; then
-        log INFO "Le job a repris et s'est terminé correctement. La table ${FQ_TABLE} est maintenant déverrouillée."
+        log INFO "TPT job resumed and completed successfully. Table ${FQ_TABLE} is now unlocked."
         
-        # Tentative optionnelle de mise à jour des métadonnées (puisque l'orchestrateur Shell a été bypassé par le -r)
-        if [ -f "${LAST_JOB_DIR}/jobvars.txt" ]; then
-            log INFO "Pour information, ce script utilitaire ne relance pas l'étape de mise à jour des métadonnées BICC (update_metadata.sh)."
+        # Resolve BATCH_ID and META_TS from CLI (-B / -T) or fallback to jobvars.txt
+        BATCH_ID="${CLI_BATCH_ID}"
+        META_TS="${CLI_TIMESTAMP}"
+        if [ -f "${JOBVARS}" ]; then
+            if [ -z "${BATCH_ID}" ]; then
+                BATCH_ID=$(grep -i "^[[:space:]]*BatchId[[:space:]]*=" "${JOBVARS}" | tail -1 | sed -E "s/^[^=]+=[[:space:]]*//; s/[[:space:]]*$//; s/^['\"]//; s/['\"]$//" | tr -d '\r')
+            fi
+            if [ -z "${META_TS}" ]; then
+                META_TS=$(grep -i "^[[:space:]]*Timestamp[[:space:]]*=" "${JOBVARS}" | tail -1 | sed -E "s/^[^=]+=[[:space:]]*//; s/[[:space:]]*$//; s/^['\"]//; s/['\"]$//" | tr -d '\r')
+            fi
         fi
+
+        # Normalize timestamp format YYYYMMDD_HHMMSS -> YYYY-MM-DD HH:MM:SS
+        if [[ "${META_TS}" =~ ^([0-9]{4})([0-9]{2})([0-9]{2})_([0-9]{2})([0-9]{2})([0-9]{2})$ ]]; then
+            META_TS="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]} ${BASH_REMATCH[4]}:${BASH_REMATCH[5]}:${BASH_REMATCH[6]}"
+        fi
+
+        if [ -z "${BATCH_ID}" ] || [ -z "${META_TS}" ]; then
+            CURRENT_EPOCH="$(date '+%s')"
+            CURRENT_ISO="$(date '+%Y-%m-%d %H:%M:%S')"
+            [ -z "${BATCH_ID}" ] && BATCH_ID="${CURRENT_EPOCH}"
+            [ -z "${META_TS}" ]  && META_TS="${CURRENT_ISO}"
+        fi
+
+        # Query HAS_META on the target table and backfill INFA_BATCH_ID / INFA_LAST_REPLICATED
+        META_CHK_OUT=$(${BTEQ_CMD} <<EOF 2>&1
+.set WIDTH 256
+.set TITLEDASHES OFF
+.logon ${TDPID}/${TD_USER},${BTEQ_PWD}
+.if ErrorCode <> 0 Then .exit 2
+SELECT 'HAS_META=' || TRIM(COUNT(*)) (TITLE '')
+FROM DBC.ColumnsV
+WHERE DatabaseName = '${TARGET_DB}' AND TableName = '${TARGET_TABLE}'
+  AND ColumnName IN ('INFA_BATCH_ID', 'INFA_LAST_REPLICATED');
+.logoff
+.exit 0
+EOF
+)
+        HAS_META=$(echo "${META_CHK_OUT}" | grep -o 'HAS_META=[0-9][0-9]*' | head -1 | cut -d= -f2)
+        [ -z "${HAS_META}" ] && HAS_META=0
+
+        source "${LIB_DIR}/update_metadata.sh"
     else
-        die 2 "Le redémarrage du job a échoué (rc=${RC}). Veuillez corriger la cause de l'erreur dans le fichier source ou purger manuellement la table."
+        die 2 "TPT job restart failed (rc=${RC}). Fix the underlying data/table error or recreate the staging table."
     fi
 fi
 

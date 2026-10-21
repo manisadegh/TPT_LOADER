@@ -14,6 +14,7 @@ READER_INSTANCES=1
 LOAD_INSTANCES=1
 MAX_SESSIONS=8
 SKIP_ROWS=1
+SKIP_ROWS_EVERY_FILE="N"
 ARCHIVE_DIR=""
 WORK_DIR="${TPT_WORK_DIR:-${SCRIPT_DIR}/tmp/tpt_work}"
 CLI_BATCH_ID=""
@@ -25,7 +26,7 @@ TIMESTAMP_PATTERN=""
 # First pass: look for a job variables config file (-v)
 OPTIND=1
 JOB_VARS_FILE=""
-while getopts ":f:t:d:k:u:m:s:e:r:l:x:S:a:w:B:T:b:c:v:h" opt; do
+while getopts ":f:t:d:k:u:m:s:e:r:l:x:S:Y:a:w:B:T:b:c:v:h" opt; do
     case "${opt}" in
         v) JOB_VARS_FILE="${OPTARG}" ;;
     esac
@@ -67,6 +68,7 @@ if [ -n "${JOB_VARS_FILE}" ]; then
     VAL="$(get_var LoadInstances)";    [ -n "$VAL" ] && LOAD_INSTANCES="$VAL"
     VAL="$(get_var MaxSessions)";      [ -n "$VAL" ] && MAX_SESSIONS="$VAL"
     VAL="$(get_var SkipRows)";         [ -n "$VAL" ] && SKIP_ROWS="$VAL"
+    VAL="$(get_var SkipRowsEveryFile)"; [ -n "$VAL" ] && SKIP_ROWS_EVERY_FILE="$VAL"
     VAL="$(get_var ArchiveDirectory)"; [ -n "$VAL" ] && ARCHIVE_DIR="$VAL"
     VAL="$(get_var WorkDirectory)";    [ -n "$VAL" ] && WORK_DIR="$VAL"
     VAL="$(get_var BatchId)";          [ -n "$VAL" ] && CLI_BATCH_ID="$VAL"
@@ -77,7 +79,7 @@ fi
 
 # Second pass: apply CLI arguments (overrides config file)
 OPTIND=1
-while getopts ":f:t:d:k:u:m:s:e:r:l:x:S:a:w:B:T:b:c:v:h" opt; do
+while getopts ":f:t:d:k:u:m:s:e:r:l:x:S:Y:a:w:B:T:b:c:v:h" opt; do
     case "${opt}" in
         f) FILE_SPEC="${OPTARG}" ;;
         t) TARGET_TABLE="${OPTARG}" ;;
@@ -91,6 +93,7 @@ while getopts ":f:t:d:k:u:m:s:e:r:l:x:S:a:w:B:T:b:c:v:h" opt; do
         l) LOAD_INSTANCES="${OPTARG}" ;;
         x) MAX_SESSIONS="${OPTARG}" ;;
         S) SKIP_ROWS="${OPTARG}" ;;
+        Y) SKIP_ROWS_EVERY_FILE="${OPTARG}" ;;
         a) ARCHIVE_DIR="${OPTARG}" ;;
         w) WORK_DIR="${OPTARG}" ;;
         B) CLI_BATCH_ID="${OPTARG}" ;;

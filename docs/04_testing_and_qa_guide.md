@@ -103,13 +103,15 @@ cd /sg/local/sid/home/Dsidadm/DATA_LOADER/PROCESSING_TOOLS/TPT_LOADER
        -m replace \
        -d DEV0SIDFINSTG \
        -u DEV0SIDFINADM \
-       -w "${TPT_TEST_DIR}/work"
+       -w "${TPT_TEST_DIR}/work" \
+       -B "558766085" \
+       -T "2026-03-10 14:51:59"
      ```
 - **Assertions**:
   - Script identifies the latest job directory in `work/`.
   - Script invokes `tbuild` with the existing job name and job variables.
-  - Returns `0` or `4`.
-  - Log asserts: `Le job a repris et s'est terminé correctement. La table DEV0SIDFINSTG.ERP_MSH_INVOICE_HEADER est maintenant déverrouillée.`
+  - Returns `0` or `4` and executes `update_metadata.sh` to backfill `INFA_BATCH_ID` and `INFA_LAST_REPLICATED`.
+  - Log asserts: `FastLoad job resumed and completed successfully. Table DEV0SIDFINSTG.ERP_MSH_INVOICE_HEADER is now unlocked.`
 
 ---
 

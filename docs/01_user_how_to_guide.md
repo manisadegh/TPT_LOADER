@@ -86,6 +86,7 @@ The loader reads global environment settings from `/sg/local/sid/home/Dsidadm/DA
 | `-u` | `<user>` | `${TDENV}${SID_ADM_USER}` | Teradata logon username. |
 | `-s` | `<delimiter>` | `,` | Text field delimiter character. |
 | `-S` | `<skip_rows>` | `1` | Number of header rows to skip (set to `0` for headless CSVs). |
+| `-Y` | `<Y\|N>` | `N` | Skip header rows on every file when loading wildcards (`SkipRowsEveryFile`). |
 | `-B` | `<batch_id>` | Auto-extracted | Value for `INFA_BATCH_ID` audit column. |
 | `-T` | `<timestamp>` | Auto-extracted | Value for `INFA_LAST_REPLICATED` audit column (`YYYY-MM-DD HH:MM:SS`). |
 | `-e` | `<error_limit>` | `1` | Max allowable rejected rows before aborting job. |
@@ -157,13 +158,13 @@ When a FastLoad or MultiLoad job terminates abnormally, Teradata places the targ
 
 ### Syntax
 ```bash
-./unlock_tpt_table.sh -t <table> -m replace|append [-d <database>] [-u <user>]
+./unlock_tpt_table.sh -t <table> -m replace|append [-d <database>] [-u <user>] [-B <batch_id>] [-T <timestamp>]
 ```
 
 ### Replace Mode Lock Release (FastLoad Paused)
-In `replace` mode, Teradata requires the interrupted job to be resumed to completion or dropped. The script locates the latest job variables file in `WORK_DIR` and resumes the job via `tbuild`:
+In `replace` mode, Teradata requires the interrupted job to be resumed to completion or dropped. The script locates the latest job variables file in `WORK_DIR`, resumes the job via `tbuild`, and then executes `update_metadata.sh` to backfill `INFA_BATCH_ID` and `INFA_LAST_REPLICATED` on the recovered table:
 ```bash
-./unlock_tpt_table.sh -t ERP_MSH_INVOICE_HEADER -m replace -d DEV0SIDFINSTG
+./unlock_tpt_table.sh -t ERP_MSH_INVOICE_HEADER -m replace -d DEV0SIDFINSTG -B 000000011 -T "2026-10-15 12:00:11"
 ```
 
 ### Append Mode Lock Release (MultiLoad Paused)

@@ -82,7 +82,7 @@ sequenceDiagram
 
 ### 4.1 DAT-01: Positional & Named Column Alignment Check
 In flat-file loading, a file might have the correct *number* of columns, but an upstream ERP extract change might have reordered them (e.g. `INVOICE_DATE` and `GL_DATE` swapped). Without validation, FastLoad silently loads data into wrong columns.
-- **Contract**: When `SkipRows > 0`, `bteq_check.sh` reads line 1 of the data file and verifies that every sanitized column name matches `DBC.ColumnsV` in the exact ordinal position.
+- **Contract**: When `SkipRows > 0`, `bteq_check.sh` reads line 1 of the data file, sanitizes each header column name via `clean_column_name()` (stripping whitespace/quotes, converting `[^A-Za-z0-9_]` to `_`, collapsing consecutive `_`, and converting to uppercase—identical to `schema_guard.py`), and verifies that every column name matches `DBC.ColumnsV` in the exact ordinal position.
 - **Behavior**: If column 14 is `INVOICE_NUM` in CSV but `VENDOR_ID` in the table, the job immediately aborts with exit code `1` before launching TPT.
 
 ### 4.2 DAT-02: Append Mode Metadata Guard
@@ -109,7 +109,7 @@ If a prior job crashed or an uncommitted batch left rows with `INFA_BATCH_ID IS 
 | **Preparation Phase** | `DELETE ALL` on target table via DDL operator | Target table preserved |
 | **Throughput** | Maximum wire speed (block-level direct write) | High-speed multi-session parallel inserts |
 | **Table Lock State** | FastLoad Paused on crash | MultiLoad Paused on crash |
-| **Unlock Mechanism** | Resume job via `unlock_tpt_table.sh -m replace` | `RELEASE MLOAD` via `unlock_tpt_table.sh -m append` |
+| **Unlock Mechanism** | Resume job & backfill audit metadata via `unlock_tpt_table.sh -m replace -B <id> -T <ts>` | `RELEASE MLOAD` via `unlock_tpt_table.sh -m append` |
 | **Use Case** | Full snapshot extracts (default staging) | Delta / CDC extracts |
 
 ---

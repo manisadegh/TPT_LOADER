@@ -20,7 +20,7 @@ if [ "${HAS_META}" -eq 2 ]; then
     RECORD_ERR_FILE=""
     log INFO "In-memory metadata padding: RecordErrorFile disabled to avoid duplicate disk I/O"
 else
-    RECORD_ERR_FILE="$(to_native_path "${RUN_DIR}/rejected_rows.txt")"
+    RECORD_ERR_FILE="${RUN_DIR}/rejected_rows.txt"
 fi
 
 # With the wallet, "$tdwallet(...)" reaches TPT literally and no password is
@@ -43,13 +43,16 @@ fi
     printf "ErrorTable2           = '%s.UV_%s'\n" "${WRK_DB}" "${TARGET_TABLE}"
     printf "WorkTable             = '%s.WT_%s'\n" "${WRK_DB}" "${TARGET_TABLE}"
     printf "\n/* Source file(s) */\n"
-    printf "DirectoryPath         = '%s'\n"   "$(to_native_path "${DIRECTORY_PATH}")"
+    printf "DirectoryPath         = '%s'\n"   "${DIRECTORY_PATH}"
     printf "FileName              = '%s'\n"   "${FILE_NAME}"
     printf "TextDelimiter         = '%s'\n"   "${DELIMITER}"
     printf "SkipRows              = %s\n"     "${SKIP_ROWS}"
     printf "SkipRowsEveryFile     = '%s'\n"   "${SKIP_ROWS_EVERY_FILE:-N}"
     printf "MultipleReaders       = '%s'\n"   "${MULTIPLE_READERS}"
     printf "RecordErrorFile       = '%s'\n"   "${RECORD_ERR_FILE}"
+    printf "\n/* Audit Metadata Context */\n"
+    printf "BatchId               = '%s'\n"   "${BATCH_ID}"
+    printf "Timestamp             = '%s'\n"   "${META_TS}"
     printf "\n/* Tuning */\n"
     printf "ErrorLimit            = %s\n"     "${ERROR_LIMIT}"
     printf "MaxSessions           = %s\n"     "${MAX_SESSIONS}"

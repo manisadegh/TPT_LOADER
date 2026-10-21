@@ -48,19 +48,21 @@ graph TD
 
 ### 2.2 Module: `lib/env_and_helpers.sh`
 - **Path**: `lib/env_and_helpers.sh`
-- **Role**: Standardized logging, exit handling, and filesystem path abstraction.
+- **Role**: Standardized logging, exit handling, SQL identifier validation, literal escaping, and header column sanitization.
 - **Key Functions**:
   1. `log(level, message)`: Prints timestamped log lines formatted as `YYYY-MM-DD HH:MM:SS [LEVEL] message`.
   2. `die(code, message)`: Logs message at `ERROR` level and exits shell immediately with `exit ${code}`.
-  3. `to_native_path(path)`: Returns the clean absolute POSIX path.
+  3. `validate_identifier(val, label)`: Enforces `^[A-Za-z0-9_]+$` on SQL identifiers (`TARGET_DB`, `TARGET_TABLE`, `WRK_DB`).
+  4. `escape_sql_literal(val)`: Escapes single quotes (`'` $\rightarrow$ `''`) before SQL interpolation.
+  5. `clean_column_name(col_raw)`: Sanitizes CSV header column names (`[^A-Za-z0-9_]` $\rightarrow$ `_`, deduplicates `_`, uppercase) in 100% parity with `schema_guard.py`.
 
 ---
 
 ### 2.3 Module: `lib/parse_args.sh`
 - **Path**: `lib/parse_args.sh`
 - **Role**: Implements a robust **two-pass configuration loader**:
-  - **Pass 1**: Loads defaults from `config/global.env` and optional `-v <jobvars>` configuration file.
-  - **Pass 2**: Parses explicit CLI flags (`-f`, `-t`, `-m`, `-B`, `-T`, etc.), overriding defaults.
+  - **Pass 1**: Loads defaults from `config/global.env` and optional `-v <jobvars>` configuration file (including `SkipRowsEveryFile`).
+  - **Pass 2**: Parses explicit CLI flags (`-f`, `-t`, `-m`, `-B`, `-T`, `-S`, `-Y`, etc.), overriding defaults.
   - Sanitizes quotes and whitespace from arguments.
 
 ---
@@ -146,7 +148,7 @@ graph TD
 - **Path**: `unlock_tpt_table.sh`
 - **Role**: Unlocks tables left locked (Error 2652) by crashed TPT runs:
   - In `append` mode: Issues `RELEASE MLOAD <table_name>;` via BTEQ.
-  - In `replace` mode: Finds the latest `jobvars.txt` in `WORK_DIR` and resumes the interrupted FastLoad job via `tbuild -r`.
+  - In `replace` mode: Finds the latest `jobvars.txt` in `WORK_DIR`, resumes the interrupted FastLoad job via `tbuild`, queries `HAS_META` from `DBC.ColumnsV`, and sources `lib/update_metadata.sh` to backfill `INFA_BATCH_ID` and `INFA_LAST_REPLICATED` on the recovered table.
 
 ---
 

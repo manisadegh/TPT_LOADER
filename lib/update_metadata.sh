@@ -6,14 +6,16 @@ if [ "${HAS_META}" -eq 2 ]; then
     if [ -z "${BATCH_ID}" ] && [ -z "${META_TS}" ]; then
         log WARN "Metadata columns exist in ${FQ_TABLE} but neither batch ID nor timestamp could be determined"
     else
+        SAFE_BATCH_ID="$(escape_sql_literal "${BATCH_ID}")"
+        SAFE_META_TS="$(escape_sql_literal "${META_TS}")"
         log INFO "Populating metadata columns in ${FQ_TABLE} (batch='${BATCH_ID:-N/A}', ts='${META_TS}')..."
         META_BTEQ_OUT=$(${BTEQ_CMD} <<EOF 2>&1
 .set WIDTH 256
 .logon ${TDPID}/${TD_USER},${BTEQ_PWD}
 .if ErrorCode <> 0 Then .exit 2
 UPDATE ${FQ_TABLE}
-SET INFA_BATCH_ID = '${BATCH_ID}',
-    INFA_LAST_REPLICATED = '${META_TS}'
+SET INFA_BATCH_ID = '${SAFE_BATCH_ID}',
+    INFA_LAST_REPLICATED = '${SAFE_META_TS}'
 WHERE INFA_BATCH_ID IS NULL;
 .if ErrorCode <> 0 Then .exit 1
 .logoff

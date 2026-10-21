@@ -63,8 +63,8 @@ if [ "${SKIP_ROWS}" -gt 0 ]; then
     IFS="${DELIMITER}" read -r -a CSV_COLS_RAW <<< "${HEADER_LINE}"
     CSV_COLS=()
     for col in "${CSV_COLS_RAW[@]}"; do
-        cleaned_col=$(echo "${col}" | sed -e 's/^[ "]*//' -e 's/[ "]*$//' | tr '[:lower:]' '[:upper:]')
-        CSV_COLS+=( "${cleaned_col}" )
+        cleaned_col=$(clean_column_name "${col}")
+        [ -n "${cleaned_col}" ] && CSV_COLS+=( "${cleaned_col}" )
     done
 
     if [ ${#CSV_COLS[@]} -ne ${#DB_COLS[@]} ]; then

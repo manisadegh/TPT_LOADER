@@ -8,6 +8,10 @@
 [ -z "${TDENV+x}" ]              && log WARN "TDENV is not set - using no environment prefix"
 [ -f "${TPT_SCRIPT}" ]           || die 1 "TPT script not found: ${TPT_SCRIPT}"
 
+validate_identifier "${TARGET_DB}" "TARGET_DB"
+validate_identifier "${TARGET_TABLE}" "TARGET_TABLE"
+validate_identifier "${WRK_DB}" "WRK_DB"
+
 # Verify tbuild and bteq (POSIX / Unix)
 command -v tbuild >/dev/null 2>&1 || die 1 "tbuild not found in PATH"
 command -v bteq   >/dev/null 2>&1 || die 1 "bteq not found in PATH"

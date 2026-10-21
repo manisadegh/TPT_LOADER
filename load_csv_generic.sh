@@ -26,6 +26,7 @@
 #       append  : keep existing rows, Update operator (MultiLoad)
 #   -s  Field delimiter (default: ',')
 #   -S  Number of header rows to skip (default: 1)
+#   -Y  Skip header rows on every file when loading multi-file wildcards: Y|N (default: 'N')
 #   -e  ErrorLimit: number of rejected rows that aborts the job (default: 1)
 #   -r  DataConnector reader instances (default: 1; >1 useful for multi-part files)
 #   -l  Load/Update operator instances (default: 1)

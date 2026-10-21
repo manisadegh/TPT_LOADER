@@ -4,7 +4,7 @@
 #   replace : all steps (Truncate_Target -> Cleanup_Previous_Run -> Load_Data)
 #   append  : start at Cleanup_Previous_Run (tbuild -s) so the target is kept
 # ---------------------------------------------------------------------------
-TBUILD_OPTS=( -f "$(to_native_path "${TPT_SCRIPT}")" -v "$(to_native_path "${JOBVARS}")" -j "${JOB_NAME}" )
+TBUILD_OPTS=( -f "${TPT_SCRIPT}" -v "${JOBVARS}" -j "${JOB_NAME}" )
 [ "${LOAD_MODE}" = "append" ] && TBUILD_OPTS+=( -s Cleanup_Previous_Run )
 
 log INFO "Job name    : ${JOB_NAME}"
